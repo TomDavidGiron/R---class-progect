@@ -1,0 +1,131 @@
+```{r}
+library(reader)
+library(tidyverse)
+library(aod)
+library(ggplot2)
+library(caret)
+library(InformationValue)
+library(xgboost)
+library(plyr)
+?caret::train_model_list
+```
+
+```{r}
+setwd("C:/Users/TDGJU/OneDrive/Desktop/finalproject")
+data <- read_csv("train.csv")
+test <- read_csv("test.csv")
+data$label <- as.factor(data$label)
+```
+
+```{r}
+data <- data %>% 
+  group_by(label) %>%
+  sample_n(size = 1200) %>%
+  ungroup
+table(data$label)
+ select(data,-trust)
+ select(data,-surprise)
+ select(data,-sadness)
+ select(data,-positive)
+ select(data,-negative)
+ select(data,-joy)
+ select(data,-fear)
+ select(data,-disgust)
+ select(data,-anticipation)
+ select(data,-anger)
+ select(data,-f_ratio)
+ select(data,-fBombN)
+ select(data,-excs_ratio)
+ select(data,-questions_ratio)
+ select(data,-exclamationN)
+ select(data,-questionN)
+set.seed(1)
+tr_inds <- rbinom(nrow(data), 1, 0.80)
+funny.train <- data[tr_inds==1,] # Train
+funny.test <- data[tr_inds==0,] # Test
+data$label <- as.factor(data$label)
+
+my_trC <- trainControl(method="cv", number = 6)
+model <- train(label~., data = funny.train,
+               method = "cforest",
+               trControl = my_trC)
+model
+```
+
+```{r}
+pred <- predict(model, test) # predict() returns the predicted values
+head(pred) # labels
+
+table(pred) # How many did the chosen model classify as spam/ham?
+write.csv(pred, "pred.csv", row.names = TRUE)
+```
+
+```{r}
+adata <- ddply(data, c("label"), summarise,
+               N    = length(wordN),
+               mean = mean(wordN),
+               sd   = sd(wordN),
+               se   = sd / sqrt(N)
+)
+adata
+```
+
+```{r}
+bdata <- ddply(data, c("label"), summarise,
+               N    = length(capsN),
+               mean = mean(capsN),
+               sd   = sd(capsN),
+               se   = sd / sqrt(N)
+)
+bdata
+```
+
+```{r}
+cdata <- ddply(data, c("label"), summarise,
+               N    = length(avg_word_length),
+               mean = mean(avg_word_length),
+               sd   = sd(avg_word_length),
+               se   = sd / sqrt(N)
+)
+cdata
+```
+# First Graph
+```{r}
+funny.train %>%
+ggplot(., aes(label, avg_word_length, fill = label)) + # Data + Aesthetics
+geom_boxplot() # Geometries
+```
+# Second Graph
+```{r}
+funny.train %>%
+ggplot(., aes(letterN, fill = label)) + # Data + Aesthetics
+  geom_histogram(bins = 100) # Geometries
+```
+# Third Graph
+```{r}
+# Data
+library(tidyverse)
+summary_data <- data %>% group_by(subreddit, label) %>% 
+  summarise(count = n())
+
+ggplot(summary_data, aes(x=label, y = count, fill = label)) + # Data + Aesthetics
+  geom_bar(stat='identity', alpha = 0.9) +# Geometries 
+  facet_wrap(~subreddit, scales = 'free_y')
+
+```
+
+# t test 
+```{r}
+#i believed that exclamationN can predict whether a comment posted on reddit is sarcastic or not
+#null hypothesis h0- there is no difference between the amount of exclamationN in sarcastic comments and non sarcastic comments 
+#null hypothesis h1- there is a difference between the amount of exclamationN in sarcastic comments and non sarcastic comments
+t.test(x=data$exclamationN[data$label== 0], y = data$exclamationN[data$label== 1], mu = 0 , var.equal = T, conf.level = .99)
+#The 0 hypothesis can be ruled out, It can therefore be said that exclamation marks help to differentiate between sarcastic and non sarcastic.
+```
+
+# chi test - fit
+```{r}
+xtab = table(funny.test$subreddit, funny.test$label)
+chisq.test(xtab)
+```
+
