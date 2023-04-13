@@ -1,0 +1,49 @@
+```{r}
+library(reader)
+library(tidyverse)
+library(aod)
+library(ggplot2)
+library(caret)
+library(InformationValue)
+?caret::train_model_list
+```
+
+```{r}
+rm(list = ls())
+```
+
+```{r}
+setwd("C:/Users/TDGJU/OneDrive/Desktop/finalproject")
+data <- read_csv("train.csv")
+test <- read_csv("test.csv")
+data$label <- as.factor(data$label)
+```
+
+```{r}
+data <- data %>% 
+  group_by(label) %>%
+  sample_n(size = 1200) %>%
+  ungroup
+table(data$label)
+
+set.seed(1)
+tr_inds <- rbinom(nrow(data), 1, 0.85)
+funny.train <- data[tr_inds==1,] # Train
+funny.test <- data[tr_inds==0,] # Test
+data$label <- as.factor(data$label)
+
+my_trC <- trainControl(method="cv", number = 5)
+model <- train(label~., data = funny.train,
+               method = "rf",
+               trControl = my_trC)
+model
+```
+
+```{r}
+pred <- predict(model, test) # predict() returns the predicted values
+head(pred) # labels
+
+table(pred) # How many did the chosen model classify as spam/ham?
+write.csv(pred, "pred7.csv", row.names = TRUE)
+```
+
